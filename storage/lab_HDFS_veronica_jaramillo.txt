@@ -1,0 +1,87 @@
+
+
+--------------HDFS labs
+--agregar usuario
+
+-se agrega en todos los serv
+[root@vjaramillo1 etc]# useradd mafita
+[root@vjaramillo1 etc]# ls -ltr /home/mafita/
+total 0
+
+[root@vjaramillo1 vero]# cp -r jdk1.8.0_151 /opt
+[root@vero4 vjaramillo]# cp -r /usr/java/jdk1.8.0_151 /opt
+
+--me voy al servidor dond deje hadoop que es donde esta el namenode osea el 2 en este caso
+
+[root@vero2 vjaramillo]# hadoop fs -ls /
+Found 2 items
+drwxrwxrwt   - hdfs supergroup          0 2017-11-30 18:19 /tmp
+drwxr-xr-x   - hdfs supergroup          0 2017-11-30 18:20 /user
+
+-esto lo 
+[vjaramillo@vero2 ~]$ hadoop fs -chmod 755 /user
+[vjaramillo@vero2 ~]$ hadoop fs -ls /
+Found 2 items
+drwxrwxrwt   - hdfs supergroup          0 2017-11-30 18:19 /tmp
+drwxr-xr-x   - hdfs supergroup          0 2017-11-30 18:20 /user
+
+-ahora con root
+
+[root@vero2 vjaramillo]# sudo -u hdfs hadoop fs -mkdir /user/mafita
+[root@vero2 vjaramillo]# sudo -u hdfs haddop fs -ls /user
+sudo: haddop: command not found
+[root@vero2 vjaramillo]# sudo -u hdfs hadoop fs -ls /user
+Found 5 items
+drwxrwxrwx   - mapred hadoop              0 2017-11-30 18:19 /user/history
+drwxrwxr-t   - hive   hive                0 2017-11-30 18:19 /user/hive
+drwxrwxr-x   - hue    hue                 0 2017-11-30 18:20 /user/hue
+drwxr-xr-x   - hdfs   supergroup          0 2017-11-30 19:16 /user/mafita
+drwxrwxr-x   - oozie  oozie               0 2017-11-30 18:20 /user/oozie
+
+ponerle pwd en todos
+[root@vero1 vjaramillo]# passwd mafita
+
+-en el ser de hadoop
+com no me dejo permisos fui a root y cambie 
+visudo
+## The COMMANDS section may have other options added to it.
+##
+## Allow root to run any commands anywhere
+root    ALL=(ALL)       ALL
+mafita  ALL=(ALL)       ALL
+
+[root@vero2 usr]# find / -name hadoop-mapreduce-examples.jar
+/disk1/opt/cloudera/parcels/CDH-5.12.1-1.cdh5.12.1.p0.3/lib/hadoop-mapreduce/hadoop-mapreduce-examples.jar
+
+ir a dir
+cd /disk1/opt/cloudera/parcels/CDH-5.12.1-1.cdh5.12.1.p0.3/lib/hadoop-mapreduce/
+
+[mafita@vero2 hadoop-mapreduce]$  sudo -u hdfs  hadoop jar hadoop-mapreduce-examples.jar teragen 100000000 /user/mafita/terasort-input
+17/11/30 20:06:58 INFO client.RMProxy: Connecting to ResourceManager at vero2.southcentralus.cloudapp.azure.com/10.0.3.5:8032
+17/11/30 20:06:59 INFO terasort.TeraGen: Generating 100000000 using 2
+
+[mafita@vero2 hadoop-mapreduce]$time sudo -u hdfs hadoop jar hadoop-mapreduce-examples.jar terasort /user/mafita/terasort-input /user/mafita/terasort-output
+
+sudo -u hdfs hadoop jar hadoop-mapreduce-examples.jar teravalidate /user/mafita/terasort-output /user/mafita/terasort-validate
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
