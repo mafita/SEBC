@@ -1,0 +1,515 @@
+
+
+
+-------------------------------------------------------PREINSTALL
+
+
+--habilitar el puerto 7180 desde la consola pero se hace al recurso de seguridad y ya como 
+todos tiene ese recurso
+
+######################inicializa servidor
+yum update
+yum repolist
+
+systemctl stop firewalld
+systemctl disable firewalld
+
+systemctl stop tuned
+systemctl disable tuned
+
+systemctl status chronyd
+systemctl stop chronyd
+systemctl disable chronyd
+
+systemctl status firewalld
+systemctl status tuned
+systemctl status chronyd
+
+
+#######################para ver los que tiene montados con df
+[root@vjaramilloBC1 vjaramillobc]# df -h 
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda2        32G  2.3G   30G   8% /
+devtmpfs         14G     0   14G   0% /dev
+tmpfs            14G     0   14G   0% /dev/shm
+tmpfs            14G  8.4M   14G   1% /run
+tmpfs            14G     0   14G   0% /sys/fs/cgroup
+/dev/sda1       497M  114M  384M  23% /boot
+/dev/sdb1        55G  2.1G   51G   4% /mnt/resource
+tmpfs           2.8G     0  2.8G   0% /run/user/1000
+tmpfs           2.8G     0  2.8G   0% /run/user/0
+
+#######################ver los discos que tiene
+[root@vjaramilloBC1 vjaramillobc]# dmesg | grep SCSI
+[    0.450077] SCSI subsystem initialized
+[    1.068404] Block layer SCSI generic (bsg) driver version 0.4 loaded (major 251)
+[    2.246615] sd 1:0:1:0: [sdb] Attached SCSI disk
+[    2.251555] sd 5:0:0:1: [sdd] Attached SCSI disk
+[    2.251967] sd 5:0:0:0: [sdc] Attached SCSI disk
+[    2.297923] sd 0:0:0:0: [sda] Attached SCSI disk
+
+
+########################para listar los discos montados
+[root@vjaramilloBC1 vjaramillobc]# sudo -i blkid
+/dev/sdb1: UUID="50551b61-b3fe-4898-b693-8d90809d5159" TYPE="ext4" 
+/dev/sda1: UUID="d912257f-23c7-4c23-8449-3f6987105a35" TYPE="xfs" 
+/dev/sda2: UUID="8e1ff763-5fa2-47f3-91a4-af554468bd38" TYPE="xfs"
+
+######################se monta el disco
+
+sudo mkfs.ext4 /dev/sdc
+yes
+sudo mkdir /disk1
+sudo mount /dev/sdc /disk1
+sudo echo "/dev/sdc /disk1 ext4 defaults,noatime 0" >> /etc/fstab
+sudo mount -o remount /disk1
+
+
+sudo mkfs.ext4 /dev/sdd
+sudo mkdir /disk2
+sudo mount /dev/sdd /disk2
+sudo echo "/dev/sdd /disk2 ext4 defaults,noatime 0" >> /etc/fstab
+sudo mount -o remount /disk2
+
+[root@vero1 cloudera-scm-server]# df -h 
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda2        32G  7.4G   25G  24% /
+devtmpfs         14G     0   14G   0% /dev
+tmpfs            14G     0   14G   0% /dev/shm
+tmpfs            14G  8.5M   14G   1% /run
+tmpfs            14G     0   14G   0% /sys/fs/cgroup
+/dev/sdc         79G  6.7G   68G   9% /disk1
+/dev/sdd         79G  117M   75G   1% /disk2
+/dev/sda1       497M  142M  356M  29% /boot
+tmpfs           2.8G     0  2.8G   0% /run/user/994
+tmpfs           2.8G     0  2.8G   0% /run/user/0
+/dev/sdb1        55G  2.1G   51G   4% /mnt/resource
+cm_processes     14G   32K   14G   1% /run/cloudera-scm-agent/process
+tmpfs           2.8G     0  2.8G   0% /run/user/1000
+
+
+######################copio y hago la liga
+cp -Rp /opt /disk1/opt
+mv /opt /opt.back
+ln -s /disk1/opt /opt
+
+cp -Rp /var/log /disk2/
+mv /var/log /var/log.back
+ln -s /disk2/log /var/log
+
+[root@vjaramilloBC1 /]# df -h /opt
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sdc         79G   57M   75G   1% /disk1
+
+[root@vjaramilloBC1 /]# df -h /var/log
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sdd         79G   58M   75G   1% /disk2
+
+
+######################Disable transparent hugepage support
+
+cat /sys/kernel/mm/transparent_hugepage/enabled
+sudo echo never > /sys/kernel/mm/transparent_hugepage/enabled
+cat /sys/kernel/mm/transparent_hugepage/enabled
+
+[root@vjaramilloBC4 /]# cat /sys/kernel/mm/transparent_hugepage/enabled
+[always] madvise never
+[root@vjaramilloBC4 /]# cat /sys/kernel/mm/transparent_hugepage/enabled
+always madvise [never]
+
+
+######################Swapines
+
+echo 1 > /proc/sys/vm/swappiness
+echo "vm.swappiness = 1" >> /etc/sysctl.conf
+
+[root@vjaramilloBC1 /]# cat /proc/sys/vm/swappiness 
+1
+[root@vjaramilloBC1 /]# cat /etc/sysctl.conf 
+# System default settings live in /usr/lib/sysctl.d/00-system.conf.
+# To override those settings, enter new settings here, or in an /etc/sysctl.d/<name>.conf file
+#
+# For more information, see sysctl.conf(5) and sysctl.d(5).
+vm.swappiness = 1
+
+
+######################SELinux (Security-Enhanced Linux)
+
+
+sudo vi /etc/selinux/config
+se agrega la linea
+SELINUX=disabled  #y se quita el que tiene ahi estae para que funcione se tiene que reinciar la maquina
+sestatus #se reinicia la maquina al final para que este se cargue
+
+[root@vjaramilloBC4 /]# cat /etc/selinux/config
+
+# This file controls the state of SELinux on the system.
+# SELINUX= can take one of these three values:
+#     enforcing - SELinux security policy is enforced.
+#     permissive - SELinux prints warnings instead of enforcing.
+#     disabled - No SELinux policy is loaded.
+# SELINUXTYPE= can take one of three two values:
+#     targeted - Targeted processes are protected,
+#     minimum - Modification of targeted policy. Only selected processes are protected. 
+#     mls - Multi Level Security protection.
+SELINUXTYPE=targeted
+SELINUX=disabled
+
+
+
+#####################etc hosts
+
+vi /etc/hosts
+
+10.0.3.9 vjsebcserver2.southcentralus.cloudapp.azure.com
+10.0.3.11 vjsebcserver3.southcentralus.cloudapp.azure.com
+10.0.3.10 vjsebcserver4.southcentralus.cloudapp.azure.com
+10.0.3.12 vjsebcserver5.southcentralus.cloudapp.azure.com
+
+#######################ntpd y nscd
+
+yum install ntp
+[root@vjaramilloBC1 /]# service ntpd start
+Redirecting to /bin/systemctl start  ntpd.service
+[root@vjaramilloBC1 /]# chkconfig ntpd on
+Note: Forwarding request to 'systemctl enable ntpd.service'.
+Created symlink from /etc/systemd/system/multi-user.target.wants/ntpd.service to /usr/lib/systemd/system/ntpd.service.
+
+
+yum install nscd
+[root@vjaramilloBC1 /]# service nscd start
+Redirecting to /bin/systemctl start  nscd.service
+[root@vjaramilloBC1 /]# chkconfig nscd on
+Note: Forwarding request to 'systemctl enable nscd.service'.
+Created symlink from /etc/systemd/system/multi-user.target.wants/nscd.service to /usr/lib/systemd/system/nscd.service.
+Created symlink from /etc/systemd/system/sockets.target.wants/nscd.socket to /usr/lib/systemd/system/nscd.socket.
+
+
+[root@vjaramilloBC1 opt]# systemctl enable ntpd.service
+[root@vjaramilloBC1 opt]# systemctl enable nscd.service
+
+
+#############################jdk
+
+#me traigo el java de mi maquina
+mkdir /vero
+chown -R vjaramillo:vjaramillo /vero
+
+descargo el jdk de 
+http://www.oracle.com/technetwork/java/javase/downloads/java-archive-downloads-javase7-521261.html
+scp jdk-8u151-linux-x64.tar.gz vjaramillo@vero2.southcentralus.cloudapp.azure.com:/vero
+
+tar -xzvf jdk-8u151-linux-x64.tar.gz	
+
+se crea la carpeta  
+mkdir /usr/java
+se mueve a /usr/java
+cp -r jdk1.8.0_151 /usr/java/
+
+alternatives --install /usr/bin/java java /usr/java/jdk1.8.0_151/bin/java 2
+alternatives --config java
+
+alternatives --install /usr/bin/jar jar /usr/java/jdk1.8.0_151/bin/jar 2
+alternatives --install /usr/bin/javac javac /usr/java/jdk1.8.0_151/bin/javac 2
+alternatives --set jar /usr/java/jdk1.8.0_151/bin/jar
+alternatives --set javac /usr/java/jdk1.8.0_151/bin/javac
+
+vi /etc/profile
+export JAVA_HOME=/usr/java/jdk1.8.0_151
+export JRE_HOME=/usr/java/jdk1.8.0_151/jre
+export PATH=$PATH:/usr/java/jdk1.8.0_151/bin:/usr/java/jdk1.8.0_151/jre/bin
+
+
+crear archivo java.sh
+	vi /etc/profile.d/java.sh
+y agregar las siguientes lineas
+export JAVA_HOME=/opt/jdk1.8.0_151
+export JRE_HOME=/opt/jdk1.8.0_151/jre
+export PATH=$PATH:/usr/java/jdk1.8.0_151/bin:/usr/java/jdk1.8.0_151/jre/bin
+
+[vjaramillobc@vjaramilloBC1 ~]$ java -version
+java version "1.8.0_151"
+Java(TM) SE Runtime Environment (build 1.8.0_151-b12)
+Java HotSpot(TM) 64-Bit Server VM (build 25.151-b12, mixed mode)
+
+
+##############################deshabilitar el fragmentado
+
+vi /etc/rc.d/rc.local 
+
+y agregar estas 2 lineas:
+
+echo never > /sys/kernel/mm/transparent_hugepage/enabled
+echo never > /sys/kernel/mm/transparent_hugepage/defrag
+
+Despues ejecutar el siguiente comando:
+
+sudo chmod a+x /etc/rc.d/rc.local && sudo /etc/rc.d/rc.local
+
+#################################
+ATENCION solo en el servidor raiz
+
+descargar los mysql
+wget http://repo.mysql.com/mysql-community-release-el7-5.noarch.rpm
+wget https://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-5.1.44.tar.gz
+
+instalar mysql
+sudo rpm -ivh mysql-community-release-el6-5.noarch.rpm
+sudo yum update
+sudo yum install mysql-server
+
+editar my.cnf y agregar el bind_address 
+ 
+vi /etc/my.cnf
+
+# read_rnd_buffer_size = 2M
+datadir=/var/lib/mysql
+socket=/var/lib/mysql/mysql.sock
+bind_address=0.0.0.0
+
+--inicar mysqld
+sudo systemctl start mysqld
+sudo mysql_secure_installation  
+
+$ sudo /usr/bin/mysql_secure_installation
+[...]
+Enter current password for root (enter for none):
+OK, successfully used password, moving on...
+[...]
+Set root password? [Y/n] y
+New password:
+Re-enter new password:
+Remove anonymous users? [Y/n] Y
+[...]
+Disallow root login remotely? [Y/n] N
+[...]
+Remove test database and access to it [Y/n] Y
+[...]
+Reload privilege tables now? [Y/n] Y
+All done!
+
+--iniciar la bd
+[root@vjaramilloBC1 vjaramillobc]# mysql -u root -p
+ 
+ 
+create database amon DEFAULT CHARACTER SET utf8;
+grant all on amon.* TO 'amon'@'%' IDENTIFIED BY 'amon_password';
+create database rman DEFAULT CHARACTER SET utf8;
+grant all on rman.* TO 'rman'@'%' IDENTIFIED BY 'rman_password';
+create database metastore DEFAULT CHARACTER SET utf8;
+grant all on metastore.* TO 'hive'@'%' IDENTIFIED BY 'hive_password';
+create database sentry DEFAULT CHARACTER SET utf8;
+grant all on sentry.* TO 'sentry'@'%' IDENTIFIED BY 'sentry_password';
+create database nav DEFAULT CHARACTER SET utf8;
+grant all on nav.* TO 'nav'@'%' IDENTIFIED BY 'nav_password';
+create database navms DEFAULT CHARACTER SET utf8;
+grant all on navms.* TO 'navms'@'%' IDENTIFIED BY 'navms_password';
+create database cmf DEFAULT CHARACTER SET utf8;
+grant all on cmf.* TO 'cmf'@'%' IDENTIFIED BY 'cmf_password';
+create database hue DEFAULT CHARACTER SET utf8;
+grant all on hue.* TO 'hue'@'%' IDENTIFIED BY 'hue_password';
+create database hive DEFAULT CHARACTER SET utf8;
+grant all on hive.* TO 'hive'@'%' IDENTIFIED BY 'hive_password';
+create database ozzie DEFAULT CHARACTER SET utf8;
+grant all on ozzie.* TO 'ozzie'@'%' IDENTIFIED BY 'ozzie_password';
+
+
+mysql> show databases;
++--------------------+
+| Database           |
++--------------------+
+| information_schema |
+| amon               |
+| cmf                |
+| hive               |
+| hue                |
+| metastore          |
+| mysql              |
+| nav                |
+| navms              |
+| ozzie              |
+| performance_schema |
+| rman               |
+| sentry             |
++--------------------+
+13 rows in set (0.00 sec)
+
+
+mysql>  select host, user, password from mysql.user;
++-------------+--------+-------------------------------------------+
+| host        | user   | password                                  |
++-------------+--------+-------------------------------------------+
+| localhost   | root   | *EED23600E5E92FFE09D94443C721772E101A0DCF |
+| vjaramillo1 | root   | *EED23600E5E92FFE09D94443C721772E101A0DCF |
+| 127.0.0.1   | root   | *EED23600E5E92FFE09D94443C721772E101A0DCF |
+| ::1         | root   | *EED23600E5E92FFE09D94443C721772E101A0DCF |
+| %           | amon   | *4A1243A12C2625553EC0465DD4E640DB056AA07A |
+| %           | rman   | *AEF345BFE495D8E678EA9D3D5708FD110AD2F08E |
+| %           | hive   | *8AC2E431CC7A9F2C4C0E51A65B8D8175892D9F22 |
+| %           | sentry | *280BBCEE7F3B500690296588CF09BB9FB3EEED65 |
+| %           | nav    | *993A16D875A9AB1932CC2F57E7DADA76AD35C3B2 |
+| %           | navms  | *BDD853AE26302113E4802B6FBDCC632507C782FD |
+| %           | cmf    | *19C647DAF55667DB9C1DB7C9264BF762A641854F |
+| %           | hue    | *48CA895A732F0533DB860DAC8736FEB069B42912 |
+| %           | ozzie  | *BEBFE54FCFF14EA9F48109CFDE2C5B2669598810 |
++-------------+--------+-------------------------------------------+
+13 rows in set (0.00 sec)
+
+
+################################conector
+SE TIENE QUE PONER EN TODOS EL CONECTOR SOLAMENTE
+wget https://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-5.1.44.tar.gz
+en /opt
+tar zxvf mysql-connector-java-5.1.44.tar.gz
+mkdir  /usr/share/java
+cp mysql-connector-java-5.1.44/mysql-connector-java-5.1.44-bin.jar /usr/share/java
+cd /usr/share/java
+mv mysql-connector-java-5.1.44-bin.jar mysql-connector-java.jar
+
+
+
+##################################cm
+ATENCION solo en el servidor raiz este de cm5
+
+para instalar 
+https://www.cloudera.com/documentation/enterprise/5-9-x/topics/cm_ig_install_path_b.html
+
+wget http://archive.cloudera.com/cm5/redhat/7/x86_64/cm/5.12/RPMS/x86_64/cloudera-manager-server-5.12.1-1.cm5121.p0.6.el7.x86_64.rpm
+
+wget http://archive.cloudera.com/cm5/redhat/7/x86_64/cm/5.12/RPMS/x86_64/cloudera-manager-daemons-5.12.1-1.cm5121.p0.6.el7.x86_64.rpm
+
+wget http://archive.cloudera.com/cm5/redhat/7/x86_64/cm/5.12/RPMS/x86_64/cloudera-manager-agent-5.12.1-1.cm5121.p0.6.el7.x86_64.rpm
+
+
+$ sudo yum --nogpgcheck localinstall cloudera-manager-daemons-5.12.1-1.cm5121.p0.6.el7.x86_64.rpm 
+$ sudo yum --nogpgcheck localinstall cloudera-manager-server-5.12.1-1.cm5121.p0.6.el7.x86_64.rpm
+$ sudo yum --nogpgcheck localinstall cloudera-manager-agent-5.12.1-1.cm5121.p0.6.el7.x86_64.rpm cloudera-manager-daemons
+
+
+vi /etc/cloudera-scm-agent/config.ini
+editar hostname y descomentar conector de mysql
+
+# Location of JDBC Drivers.
+[JDBC]
+cloudera_mysql_connector_jar=/usr/share/java/mysql-connector-java.jar
+
+[root@vjaramilloBC1 java]# cat /etc/cloudera-scm-agent/config.ini
+[General]
+# Hostname of the CM server.
+server_host=10.0.3.12
+
+#####################se edita el db.properties despues de cloudera
+vi /etc/cloudera-scm-server/db.properties
+[dmolinari@n1dmhserver1 etc]$ sudo cat /etc/cloudera-scm-server/db.properties
+# Copyright (c) 2012 Cloudera, Inc. All rights reserved.
+#
+# This file describes the database connection.
+#
+
+# The database type
+# Currently 'mysql', 'postgresql' and 'oracle' are valid databases.
+com.cloudera.cmf.db.type=mysql
+
+# The database host
+# If a non standard port is needed, use 'hostname:port'
+com.cloudera.cmf.db.host=127.0.0.1
+
+# The database name
+com.cloudera.cmf.db.name=cmf
+
+# The database user
+com.cloudera.cmf.db.user=cmf
+
+# The database user's password
+com.cloudera.cmf.db.password=cmf_password
+
+# The db setup type
+# By default, it is set to INIT
+# If scm-server uses Embedded DB then it is set to EMBEDDED
+# If scm-server uses External DB then it is set to EXTERNAL
+com.cloudera.cmf.db.setupType=EXTERNAL
+
+--IMPORTANTE INICIALIZA SERVIDORES CON RESTART EN AZURE PORTAL
+
+-se inicializa
+service cloudera-scm-agent start
+service cloudera-scm-server start
+
+--se va al navegador
+http://40.84.156.99:7180
+#recodar si ponerle las dos palomitas en el instalacion de java
+
+##################
+passwordles se le tiene que poner a todos
+
+en el archivo 
+
+vi /etc/sudoers.d/waagent
+vjaramillobc ALL=NOPASSWD: ALL
+
+en el portal en enterpwd es mi pwd de cajon
+***
+
+#############3
+en el parcel error de permiso
+
+[root@vjaramilloBC1 opt]# cd /opt/cloudera/
+[root@vjaramilloBC1 cloudera]# chmod 777 *
+
+
+###############
+en servidor 4 hice 
+[root@vjaramillo4 opt]# systemctl start dnsmasq.service 
+[root@vjaramillo4 opt]# systemctl enable dnsmasq.service 
+edite
+vi /etc/hosts para  el server4
+que quedara de la siguiente manera
+127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+10.0.3.4 vero1.southcentralus.cloudapp.azure.com
+10.0.3.5 vero2.southcentralus.cloudapp.azure.com
+10.0.3.6 vero3.southcentralus.cloudapp.azure.com
+10.0.3.7 vero4.southcentralus.cloudapp.azure.com
+151.101.0.167 archive.cloudera.com
+
+luego
+[root@vjaramillo2 opt]# vi /etc/hostname 
+vero2.southcentralus.cloudapp.azure.com
+
+[root@vjaramillo2 opt]# hostname vero2.southcentralus.cloudapp.azure.com
+[root@vjaramillo2 opt]# hostname
+
+[root@vjaramillo1 etc]# hostname -f
+vero1.southcentralus.cloudapp.azure.com
+[root@vjaramillo1 etc]# hostname -s
+vero1
+
+despues en todos 
+vi /etc/resolv.conf
+# Generated by NetworkManager
+search nbdx450zmehezk5jazwwyqbsrc.jx.internal.cloudapp.net
+#nameserver 168.63.129.16
+nameserver 10.0.3.7   ----->> apuntan a la maquina donde se puso el dnsmasq
+
+dig -x 10.0.3.5
+
+nslookup vero2
+tiene que salir el nombre de vero2.sohu...
+y la ip interna
+
+-luego en el database setup 
+se tiene que poner el vero1 donde esta la bd
+
+----por si quiero desinstalar cloud
+yum remove cloudera-manager-server.x86_64										   
+yum remove cloudera-manager-agent.x86_64
+yum remove cloudera-manager-daemons.x86_64
+
+-para reinicar servicios
+service cloudera-scm-agent restart
+service cloudera-scm-server restart
+
+
+
+
+
