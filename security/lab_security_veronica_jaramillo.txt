@@ -1,0 +1,94 @@
+
+--------------KERBEROS labs
+
+hay ir al cloudera manager y en el cluster 
+ir hue y cambiar dos puertos el de 8888 a 8889 y 8890 y abrirlos en azure
+
+fui a la pagina 
+http://blog.puneethabm.in/configure-hadoop-security-with-cloudera-manager-using-kerberos/
+
+client en todas 
+server en solo una
+
+server
+yum -y install krb5-server krb5-libs krb5-auth-dialog krb5-workstation
+
+client
+yum -y install krb5-workstation krb5-libs krb5-auth-dialog
+
+-en todoslos clientes se edita el archivo
+vi /etc/krb5.conf
+
+
+[libdefaults]
+ default_realm = VERO.COM
+ dns_lookup_realm = false
+ dns_lookup_kdc = false
+ ticket_lifetime = 24h
+ renew_lifetime = 7d
+ forwardable = true
+ udp_preference_limit = 1
+ default_tgs_enctypes = arcfour-hmac
+ default_tkt_enctypes = arcfour-hmac 
+
+
+[realms] 
+  VERO.COM = {
+  kdc = vero1.southcentralus.cloudapp.azure.com
+  admin_server = vero1.southcentralus.cloudapp.azure.com
+ }
+
+[domain_realm]
+ .southcentralus.cloudapp.azure.com = VERO.COM
+ southcentralus.cloudapp.azure.com = VERO.COM
+ 
+ 
+-solo en el server
+vi /var/kerberos/krb5kdc/kdc.conf
+
+-se crea la bd
+[root@vero1 ~]# /usr/sbin/kdb5_util create -s
+Loading random data
+Initializing database '/var/kerberos/krb5kdc/principal' for realm 'VERO.COM',
+master key name 'K/M@VERO.COM'
+You will be prompted for the database Master Password.
+It is important that you NOT FORGET this password.
+Enter KDC database master key: 
+Re-enter KDC database master key to verify: 
+----se agrega el pwd
+
+# kadmin.local
+kadmin.local:  addprinc cloudera-scm1@VERO.COM
+
+[root@vero1 ~]# vim /var/kerberos/krb5kdc/kadm5.acl 
+*/admin@VERO.COM *
+cloudera-scm@VERO.COM admilc
+
+[root@vero1 ~]# kadmin.local
+Authenticating as principal root/admin@VERO.COM with password.
+kadmin.local:  addpol admin
+kadmin.local:  addpol users
+kadmin.local:  addpol hosts
+kadmin.local:  exit
+
+[root@vero1 ~]# service krb5kdc start
+Redirecting to /bin/systemctl start krb5kdc.service
+[root@vero1 ~]# service kadmin start
+Redirecting to /bin/systemctl start kadmin.service
+[root@vero1 ~]# 
+
+
+--notita cuando diga que ya esta listo uno para reinicar
+es porque ya reinicie servidores y prendi los servicios
+service krb5kdc restart
+service kadmin restart
+
+
+
+
+
+
+
+
+
+
